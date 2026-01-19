@@ -1,0 +1,1 @@
+./build/temp_logger --source serial --port /dev/pts/2 --baud 9600 --raw-keep-sec 10 --compact-sec 2

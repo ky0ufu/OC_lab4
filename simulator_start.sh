@@ -1,0 +1,1 @@
+./build/temp_simulator --out serial --port /dev/pts/1 --baud 9600 --interval 1
