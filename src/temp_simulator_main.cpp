@@ -15,7 +15,7 @@ static void usage() {
       "  [--interval 1] seconds\n"
       "  [--base 22.0] [--amp 2.0] [--noise 0.2]\n"
       "  [--out stdout|serial]\n"
-      "  if --out serial: --port COM5|/dev/ttyUSB0 --baud 9600\n";
+      "  if --out serial: --port COM5|/dev/X --baud 9600\n";
 }
 
 int main(int argc, char** argv) {

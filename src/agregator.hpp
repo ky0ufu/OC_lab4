@@ -13,7 +13,7 @@ public:
     // period_floor округляет timestamp к началу часа/дня
     explicit Aggregator(timeutil::TP (*period_floor)(const timeutil::TP&));
 
-    // Добавить измерение. Если период сменился — возвращает среднее за прошлый период.
+    // Добавить измерение. Если период сменился - возвращает среднее за прошлый период.
     std::optional<AvgOut> push(timeutil::TP ts, double value);
 
 private:

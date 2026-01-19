@@ -15,6 +15,6 @@ bool parse_iso_local(const std::string& s, TP& out);
 TP floor_to_hour(const TP& tp);
 TP floor_to_day(const TP& tp);
 
-// 1 января текущего года (в локальном времени)
+// 1 января текущего года
 TP start_of_current_year(const TP& now);
 } // namespace timeutil

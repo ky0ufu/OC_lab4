@@ -1,8 +1,10 @@
 #include "agregator.hpp"
 
+// Конструктор запоминает функцию округления времени
 Aggregator::Aggregator(timeutil::TP (*period_floor)(const timeutil::TP&))
     : m_floor(period_floor) {}
 
+// Сброс накопителя для нового периода.    
 void Aggregator::reset(timeutil::TP newStart) {
     m_inited = true;
     m_start = newStart;
@@ -19,14 +21,19 @@ std::optional<AvgOut> Aggregator::push(timeutil::TP ts, double value) {
 
     std::optional<AvgOut> finished;
 
-    // если период сменился — выдаём среднее за прошлый период
+    // Если начало периода изменилось это значит мы перешли в новый период
     if (start != m_start) {
-        if (m_cnt > 0) finished = AvgOut{m_start, m_sum / (double)m_cnt};
+        if (m_cnt > 0) {
+            finished = AvgOut{m_start, m_sum / (double)m_cnt};
+        }
+        // Начинаем накапливать значения для нового периода.
         reset(start);
     }
 
     // текущее значение
     m_sum += value;
     m_cnt++;
+
+    // Если период не сменился вернётся std::nullopt.
     return finished;
 }

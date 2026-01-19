@@ -11,11 +11,13 @@
 
 static void usage() {
     std::cerr <<
-      "temp_logger:\n"
+       "temp_logger:\n"
       "  --source stdin|serial\n"
       "  [--port COM3|/dev/ttyUSB0] [--baud 9600]\n"
       "  [--raw measurements.log] [--hour hourly_avg.log] [--day daily_avg.log]\n"
-      "  [--compact-min 5]\n";
+      "  [--raw-keep-sec 86400] [--hour-keep-sec 2592000]\n"
+      "  [--compact-sec 300]\n"
+      "  (old) [--compact-min 5]\n";
 }
 
 static bool parse_temp_line(const std::string& line, double& out) {
@@ -25,7 +27,6 @@ static bool parse_temp_line(const std::string& line, double& out) {
 
     if (s.rfind("TEMP=", 0) == 0) s = s.substr(5);
 
-    // на всякий случай: запятая вместо точки
     for (char& c : s) if (c == ',') c = '.';
 
     try {
@@ -48,6 +49,10 @@ int main(int argc, char** argv) {
 
     int compactMin = 5;
 
+    long long rawKeepSec  = 24 * 3600;         // 24 часа
+    long long hourKeepSec = 30 * 24 * 3600;    // 30 дней
+    long long compactSec  = 5 * 60;            // 5 минут
+
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto need = [&](const char* name) -> std::string {
@@ -58,9 +63,15 @@ int main(int argc, char** argv) {
         if (a == "--source") source = need("--source");
         else if (a == "--port") port = need("--port");
         else if (a == "--baud") baud = std::stoi(need("--baud"));
+
         else if (a == "--raw") rawPath = need("--raw");
         else if (a == "--hour") hourPath = need("--hour");
         else if (a == "--day") dayPath = need("--day");
+
+        else if (a == "--raw-keep-sec")  rawKeepSec  = std::stoll(need("--raw-keep-sec"));
+        else if (a == "--hour-keep-sec") hourKeepSec = std::stoll(need("--hour-keep-sec"));
+        else if (a == "--compact-sec")   compactSec  = std::stoll(need("--compact-sec"));
+
         else if (a == "--compact-min") compactMin = std::stoi(need("--compact-min"));
         else if (a == "-h" || a == "--help") { usage(); return 0; }
         else { std::cerr << "Unknown arg: " << a << "\n"; usage(); return 2; }
@@ -70,12 +81,12 @@ int main(int argc, char** argv) {
     auto now = clock::now();
 
     // raw: последние 24 часа
-    RetentionLog rawLog(rawPath, [](auto n){ return n - std::chrono::hours(24); });
+    RetentionLog rawLog(rawPath, [rawKeepSec](auto n){ return n - std::chrono::seconds(rawKeepSec); });
 
-    // hourly: последние 30 дней (упрощение для лабы)
-    RetentionLog hourLog(hourPath, [](auto n){ return n - std::chrono::hours(24 * 30); });
+    // hourly: последние 30 дней
+    RetentionLog hourLog(hourPath, [hourKeepSec](auto n){ return n - std::chrono::seconds(hourKeepSec); });
 
-    // daily: текущий год (с 1 января)
+    // daily: текущий год
     RetentionLog dayLog(dayPath, [](auto n){ return timeutil::start_of_current_year(n); });
 
     // при старте обрежем уже существующие файлы
@@ -99,9 +110,12 @@ int main(int argc, char** argv) {
     Aggregator hourAgg(timeutil::floor_to_hour);
     Aggregator dayAgg(timeutil::floor_to_day);
 
-    auto nextCompact = clock::now() + std::chrono::minutes(compactMin);
+    auto nextCompact = clock::now() + std::chrono::seconds(compactSec);
 
     std::cerr << "temp_logger started. source=" << source << "\n";
+    std::cerr << "retention: rawKeepSec=" << rawKeepSec
+              << " hourKeepSec=" << hourKeepSec
+              << " compactSec=" << compactSec << "\n";
 
     std::string line;
     while (reader->readLine(line)) {
@@ -109,30 +123,29 @@ int main(int argc, char** argv) {
         if (!parse_temp_line(line, temp)) continue;
         auto ts = clock::now();
 
-        // 1) все измерения
+        // все измерения
         rawLog.append({ts, temp});
 
-        // 2) среднее за час
+        // среднее за час
         if (auto fin = hourAgg.push(ts, temp)) {
             hourLog.append({fin->period_start, fin->avg});
         }
 
-        // 3) среднее за день
+        // среднее за день
         if (auto fin = dayAgg.push(ts, temp)) {
             dayLog.append({fin->period_start, fin->avg});
 
-            // простое решение на случай смены года:
-            // при смене дня ещё раз подрежем дневной лог
+            // на случай смены года
             dayLog.compact_to_disk(clock::now());
         }
 
-        // компактация раз в N минут (удаляем старые строки)
+        // компактация раз в compactSec секунд
         auto n = clock::now();
         if (n >= nextCompact) {
             rawLog.compact_to_disk(n);
             hourLog.compact_to_disk(n);
             dayLog.compact_to_disk(n);
-            nextCompact = n + std::chrono::minutes(compactMin);
+            nextCompact = n + std::chrono::seconds(compactSec);
         }
     }
 
