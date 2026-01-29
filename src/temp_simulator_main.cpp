@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     double amp  = 2.0;
     double noise = 0.2;
 
-    std::string outMode = "stdout";
+    std::string outMode = "serial";
     std::string port;
     int baud = 9600;
 

@@ -39,7 +39,7 @@ static bool parse_temp_line(const std::string& line, double& out) {
 
 
 int main(int argc, char** argv) {
-    std::string source = "stdin";
+    std::string source = "serial";
     std::string port;
     int baud = 9600;
 
